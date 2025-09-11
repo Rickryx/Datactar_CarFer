@@ -1,0 +1,60 @@
+$ next dev --turbopack
+   ▲ Next.js 15.5.2 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://169.254.0.21:3000
+
+ ✓ Starting...
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+ ✓ Ready in 1919ms
+ ○ Compiling / ...
+ ✓ Compiled / in 6.5s
+ GET / 200 in 7731ms
+ GET / 200 in 2430ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 538ms
+ ⚠ Cross origin request detected from fleet-dashboard.lindy.site to /_next/* resource. In a future major version of Next.js, you will need to explicitly configure "allowedDevOrigins" in next.config to allow this.
+Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allowedDevOrigins
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 980ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 603ms
+ GET / 200 in 311ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 273ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 271ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 295ms
+ GET / 200 in 302ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 262ms
+ GET / 200 in 254ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 271ms
+ ✓ Compiled in 395ms
+ ✓ Compiled / in 65ms
+ GET / 200 in 997ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 275ms
+ GET / 200 in 367ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 298ms
+ ✓ Compiled in 346ms
+ ✓ Compiled in 316ms
+ ✓ Compiled / in 43ms
+ GET / 200 in 241ms
+ GET / 200 in 589ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 265ms
+ GET / 200 in 339ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 284ms
+ ✓ Compiled in 721ms
+ ✓ Compiled / in 50ms
+ GET / 200 in 692ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 269ms
+ GET / 200 in 321ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 260ms
+ ✓ Compiled in 337ms
+ GET / 200 in 746ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 275ms
+ ✓ Compiled in 431ms
+ GET / 200 in 782ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 280ms
+ ✓ Compiled in 312ms
+ GET / 200 in 704ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 285ms
+ GET / 200 in 303ms

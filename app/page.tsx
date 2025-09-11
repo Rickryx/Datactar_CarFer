@@ -1,103 +1,134 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState, useEffect } from 'react';
+import { DashboardHeader } from '@/components/fleet/dashboard-header';
+import { FleetMap } from '@/components/fleet/fleet-map';
+import { KPICards } from '@/components/fleet/kpi-cards';
+import { VehicleList } from '@/components/fleet/vehicle-list';
+import { PriorityAlerts } from '@/components/fleet/priority-alerts';
+import { VehicleDetail } from '@/components/fleet/vehicle-detail';
+import { FleetCopilot } from '@/components/fleet/fleet-copilot';
+import { 
+  mockVehicles, 
+  getFleetKPIs, 
+  getPriorityVehicles,
+  Vehicle 
+} from '@/lib/data/mock-fleet';
+
+export default function FleetDashboard() {
+  const [vehicles, setVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>(mockVehicles);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Simulate real-time updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVehicles(prevVehicles => 
+        prevVehicles.map(vehicle => ({
+          ...vehicle,
+          // Simulate small changes in speed and fuel
+          speed: Math.max(0, vehicle.speed + (Math.random() - 0.5) * 10),
+          fuel: Math.max(0, Math.min(100, vehicle.fuel + (Math.random() - 0.5) * 2)),
+          battery: Math.max(0, Math.min(100, vehicle.battery + (Math.random() - 0.5) * 1)),
+        }))
+      );
+    }, 5000); // Update every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Filter vehicles based on search
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredVehicles(vehicles);
+    } else {
+      const filtered = vehicles.filter(vehicle =>
+        vehicle.plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicle.alias.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicle.driver.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredVehicles(filtered);
+    }
+  }, [searchQuery, vehicles]);
+
+  const handleVehicleSelect = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    setIsDetailOpen(true);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  const handleBroadcast = (message: string, target: string) => {
+    console.log(`Broadcasting to ${target}: ${message}`);
+    // In a real app, this would send the message via API
+  };
+
+  const handleCopilotCommand = (command: string) => {
+    console.log('FleetCopilot command:', command);
+    // Process AI commands here
+  };
+
+  const kpis = getFleetKPIs();
+  const priorities = getPriorityVehicles();
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <DashboardHeader 
+        onSearch={handleSearch}
+        onBroadcast={handleBroadcast}
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* Main Content */}
+      <div className="flex h-[calc(100vh-80px)]">
+        {/* Left Panel - Map (70%) */}
+        <div className="flex-1 p-6 pr-3">
+          <FleetMap
+            vehicles={filteredVehicles}
+            onVehicleSelect={handleVehicleSelect}
+            selectedVehicle={selectedVehicle}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+
+        {/* Right Panel - Vehicle List & KPIs (30%) */}
+        <div className="w-[400px] p-6 pl-3 flex flex-col">
+          {/* KPI Cards */}
+          <KPICards kpis={kpis} />
+
+          {/* Priority Alerts */}
+          <PriorityAlerts
+            lowFuel={priorities.lowFuel}
+            serviceDue={priorities.serviceDue}
+            noSignal={priorities.noSignal}
+            onVehicleSelect={handleVehicleSelect}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+          {/* Vehicle List */}
+          <div className="flex-1 min-h-0">
+            <VehicleList
+              vehicles={filteredVehicles}
+              onVehicleSelect={handleVehicleSelect}
+              selectedVehicle={selectedVehicle}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Dock - FleetCopilot */}
+      <div className="fixed bottom-0 left-0 right-0 p-6 bg-white/80 backdrop-blur-sm border-t">
+        <FleetCopilot onCommand={handleCopilotCommand} />
+      </div>
+
+      {/* Vehicle Detail Drawer */}
+      <VehicleDetail
+        vehicle={selectedVehicle}
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+      />
     </div>
   );
 }
