@@ -105,7 +105,7 @@ ${getFleetContext()}`
 
     return response;
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al consultar OpenAI:', error);
     
     // Manejo específico de errores
