@@ -58,3 +58,41 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
  GET / 200 in 704ms
  GET /favicon.ico?favicon.bf3c9292.ico 200 in 285ms
  GET / 200 in 303ms
+ GET / 200 in 918ms
+ GET / 200 in 292ms
+ GET / 200 in 961ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 381ms
+ GET / 200 in 420ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 267ms
+ ✓ Compiled in 1450ms
+ ⨯ Error: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (src/client.ts:361:13)
+    at __TURBOPACK__module__evaluation__ (lib/services/openai-service.ts:5:16)
+    at __TURBOPACK__module__evaluation__ (components/fleet/fleet-copilot.tsx:21:1)
+    at __TURBOPACK__module__evaluation__ (app/page.tsx:10:1)
+  3 |
+  4 | // Configuración de OpenAI
+> 5 | const openai = new OpenAI({
+    |                ^
+  6 |   apiKey: process.env.OPENAI_API_KEY,
+  7 | });
+  8 | {
+  digest: '1859755623'
+}
+ GET / 500 in 1799ms
+ ⨯ Error: Missing credentials. Please pass an `apiKey`, or set the `OPENAI_API_KEY` environment variable.
+    at new OpenAI (src/client.ts:361:13)
+    at __TURBOPACK__module__evaluation__ (lib/services/openai-service.ts:5:16)
+    at __TURBOPACK__module__evaluation__ (components/fleet/fleet-copilot.tsx:21:1)
+    at __TURBOPACK__module__evaluation__ (app/page.tsx:10:1)
+  3 |
+  4 | // Configuración de OpenAI
+> 5 | const openai = new OpenAI({
+    |                ^
+  6 |   apiKey: process.env.OPENAI_API_KEY,
+  7 | });
+  8 | {
+  digest: '1859755623'
+}
+ GET / 500 in 779ms
+ GET /favicon.ico?favicon.bf3c9292.ico 200 in 303ms

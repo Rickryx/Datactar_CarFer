@@ -13,14 +13,19 @@ import {
   Zap,
   Navigation,
   Fuel,
-  Radio
+  Radio,
+  Loader2,
+  Settings,
+  AlertCircle
 } from 'lucide-react';
+import { queryOpenAI, isOpenAIConfigured, getOpenAIConfig } from '@/lib/services/openai-service';
 
 interface Message {
   id: string;
-  type: 'user' | 'assistant';
+  type: 'user' | 'assistant' | 'system';
   content: string;
   timestamp: Date;
+  isLoading?: boolean;
 }
 
 interface FleetCopilotProps {
@@ -38,6 +43,8 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
   ]);
   const [input, setInput] = useState('');
   const [isListening, setIsListening] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiConfig, setAiConfig] = useState(getOpenAIConfig());
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -48,8 +55,24 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
     scrollToBottom();
   }, [messages]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  // Verificar configuración de OpenAI al montar el componente
+  useEffect(() => {
+    const config = getOpenAIConfig();
+    setAiConfig(config);
+    
+    if (!config.configured) {
+      const systemMessage: Message = {
+        id: 'config-warning',
+        type: 'system',
+        content: '⚠️ **IA en modo simulado** - Para usar ChatGPT real, configura tu API Key en el archivo `.env.local`',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, systemMessage]);
+    }
+  }, []);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -59,76 +82,106 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    setIsLoading(true);
     
-    // Process command
-    if (input.startsWith('/')) {
-      onCommand(input);
-      handleCommand(input);
-    } else {
-      handleGeneralQuery(input);
-    }
+    // Agregar mensaje de carga
+    const loadingMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      type: 'assistant',
+      content: 'Procesando...',
+      timestamp: new Date(),
+      isLoading: true
+    };
+    setMessages(prev => [...prev, loadingMessage]);
 
-    setInput('');
+    try {
+      let response = '';
+      
+      // Procesar comando si empieza con /
+      if (input.startsWith('/')) {
+        onCommand(input);
+        
+        // Si OpenAI está configurado, usar IA real para comandos también
+        if (isOpenAIConfigured()) {
+          response = await queryOpenAI(input);
+        } else {
+          response = handleSimulatedCommand(input);
+        }
+      } else {
+        // Para consultas generales, usar OpenAI si está configurado
+        if (isOpenAIConfigured()) {
+          response = await queryOpenAI(input);
+        } else {
+          response = handleSimulatedQuery(input);
+        }
+      }
+
+      // Remover mensaje de carga y agregar respuesta real
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== loadingMessage.id);
+        return [...filtered, {
+          id: (Date.now() + 2).toString(),
+          type: 'assistant',
+          content: response,
+          timestamp: new Date()
+        }];
+      });
+
+    } catch (error) {
+      console.error('Error al procesar mensaje:', error);
+      
+      // Remover mensaje de carga y mostrar error
+      setMessages(prev => {
+        const filtered = prev.filter(msg => msg.id !== loadingMessage.id);
+        return [...filtered, {
+          id: (Date.now() + 2).toString(),
+          type: 'assistant',
+          content: '❌ Error al procesar tu consulta. Intenta de nuevo.',
+          timestamp: new Date()
+        }];
+      });
+    } finally {
+      setIsLoading(false);
+      setInput('');
+    }
   };
 
-  const handleCommand = (command: string) => {
-    let response = '';
-    
+  // Función de respaldo para comandos simulados
+  const handleSimulatedCommand = (command: string): string => {
     if (command.startsWith('/estado')) {
       const plate = command.split(' ')[1];
       if (plate) {
-        response = `Verificando estado del vehículo ${plate}... El vehículo está en línea, combustible al 67%, visto por última vez hace 2 minutos en las coordenadas 4.6097, -74.0817.`;
+        return `🚛 **Estado del vehículo ${plate}**\n\n✅ **En línea** - Combustible al 67%\n📍 Última posición: 4.6097, -74.0817\n⏰ Visto hace 2 minutos\n🔋 Batería: 84%\n⚡ Motor: Encendido`;
       } else {
-        response = 'Por favor especifica una placa. Uso: /estado <placa>';
+        return '❓ Por favor especifica una placa.\n**Uso:** `/estado ABC-123`';
       }
     } else if (command.startsWith('/combustible')) {
-      response = 'Encontré 3 vehículos con combustible bajo: DEF-456 (12%), VWX-234 (8%), y PQR-678 (34%). Se han identificado las estaciones de servicio más cercanas y optimizado las rutas.';
+      return '⛽ **Vehículos con combustible bajo:**\n\n🔴 **DEF-456** - 12% (Crítico)\n🟡 **VWX-234** - 8% (Crítico)\n🟠 **PQR-678** - 34% (Bajo)\n\n📍 Estaciones cercanas identificadas\n🗺️ Rutas optimizadas enviadas';
     } else if (command.startsWith('/difundir')) {
       const message = command.substring(10);
       if (message) {
-        response = `Difundiendo mensaje a todos los conductores: "${message}". Mensaje enviado a 8 vehículos activos.`;
+        return `📢 **Mensaje difundido:**\n"${message}"\n\n✅ Enviado a 8 vehículos activos\n📱 Confirmación de recepción: 7/8`;
       } else {
-        response = 'Por favor proporciona un mensaje. Uso: /difundir <mensaje>';
+        return '❓ Proporciona un mensaje.\n**Uso:** `/difundir Tu mensaje aquí`';
       }
     } else if (command.startsWith('/cercano')) {
-      response = 'Analizando posiciones de la flota... El vehículo más cercano es ABC-123 (Furgón Reparto 1) conducido por Carlos Méndez, a 2.3 km de distancia, ETA 8 minutos.';
+      return '📍 **Vehículo más cercano:**\n\n🚛 **ABC-123** (Furgón Reparto 1)\n👨‍💼 Conductor: Carlos Méndez\n📏 Distancia: 2.3 km\n⏱️ ETA: 8 minutos\n📞 Tel: +57 300 123 4567';
     } else {
-      response = 'Comando desconocido. Comandos disponibles: /estado, /combustible, /difundir, /cercano';
+      return '❓ **Comando desconocido**\n\n**Comandos disponibles:**\n• `/estado <placa>` - Estado del vehículo\n• `/combustible bajo` - Vehículos con combustible bajo\n• `/difundir <mensaje>` - Enviar mensaje a conductores\n• `/cercano` - Encontrar vehículo más cercano';
     }
-
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    }, 1000);
   };
 
-  const handleGeneralQuery = (query: string) => {
-    let response = '';
-    
+  // Función de respaldo para consultas simuladas
+  const handleSimulatedQuery = (query: string): string => {
     if (query.toLowerCase().includes('combustible')) {
-      response = 'Actualmente 2 vehículos necesitan recargar combustible inmediatamente (combustible < 15%): DEF-456 al 12% y VWX-234 al 8%. ¿Te gustaría que envíe alertas de recarga a sus conductores?';
+      return '⛽ **Estado de combustible:**\n\n🔴 **2 vehículos críticos** (< 15%)\n• DEF-456: 12%\n• VWX-234: 8%\n\n¿Te gustaría que envíe alertas de recarga a sus conductores?';
     } else if (query.toLowerCase().includes('mantenimiento') || query.toLowerCase().includes('servicio')) {
-      response = 'El vehículo PQR-678 tiene mantenimiento vencido por 450 km. DEF-456 necesita servicio en 250 km. ¿Debo programar citas de mantenimiento?';
+      return '🔧 **Estado de mantenimiento:**\n\n🔴 **PQR-678** - Vencido por 450 km\n🟡 **DEF-456** - Próximo en 250 km\n\n¿Debo programar citas de mantenimiento?';
     } else if (query.toLowerCase().includes('ubicación') || query.toLowerCase().includes('dónde')) {
-      response = 'Todos los vehículos están operando actualmente en el área metropolitana de Bogotá. 6 vehículos están en movimiento, 4 están estacionarios. ¿Te gustaría coordenadas específicas de algún vehículo?';
+      return '📍 **Ubicaciones actuales:**\n\n🏙️ Área metropolitana de Bogotá\n🚛 6 vehículos en movimiento\n🅿️ 4 vehículos estacionarios\n\n¿Necesitas coordenadas específicas?';
     } else {
-      response = 'Puedo ayudarte con monitoreo de flota, verificación de estado de vehículos, gestión de combustible, programación de mantenimiento y comunicación con conductores. ¿Qué te gustaría saber?';
+      return '🤖 **¿En qué puedo ayudarte?**\n\n• 📊 Monitoreo de flota\n• 🚛 Estado de vehículos\n• ⛽ Gestión de combustible\n• 🔧 Programación de mantenimiento\n• 📞 Comunicación con conductores\n\n¡Pregúntame lo que necesites!';
     }
-
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: response,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, assistantMessage]);
-    }, 1000);
   };
 
   const handleVoiceInput = () => {
@@ -157,13 +210,22 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
         </div>
         <div>
           <h3 className="font-semibold text-sm">FleetCopilot</h3>
-          <p className="text-xs text-muted-foreground">Asistente IA de Flota</p>
+          <p className="text-xs text-muted-foreground">
+            {aiConfig.configured ? 'IA Real (ChatGPT)' : 'IA Simulada'}
+          </p>
         </div>
-        <div className="ml-auto">
-          <Badge variant="secondary" className="text-xs">
-            <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
-            En línea
-          </Badge>
+        <div className="ml-auto flex items-center gap-2">
+          {aiConfig.configured ? (
+            <Badge variant="default" className="text-xs">
+              <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
+              ChatGPT
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-xs">
+              <AlertCircle className="w-3 h-3 mr-1" />
+              Simulado
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -177,12 +239,25 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
               className={`max-w-[80%] p-3 rounded-lg text-sm ${
                 message.type === 'user'
                   ? 'bg-blue-600 text-white'
+                  : message.type === 'system'
+                  ? 'bg-yellow-50 text-yellow-800 border border-yellow-200'
                   : 'bg-gray-100 text-gray-900'
               }`}
             >
-              <p>{message.content}</p>
+              {message.isLoading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Procesando...</span>
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap">{message.content}</div>
+              )}
               <p className={`text-xs mt-1 ${
-                message.type === 'user' ? 'text-blue-100' : 'text-gray-500'
+                message.type === 'user' 
+                  ? 'text-blue-100' 
+                  : message.type === 'system'
+                  ? 'text-yellow-600'
+                  : 'text-gray-500'
               }`}>
                 {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -201,6 +276,7 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
               size="sm"
               className="text-xs h-7"
               onClick={() => setInput(cmd.label)}
+              disabled={isLoading}
             >
               <cmd.icon className="h-3 w-3 mr-1" />
               {cmd.label}
@@ -212,20 +288,34 @@ export function FleetCopilot({ onCommand }: FleetCopilotProps) {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Pregunta a FleetCopilot o usa /comandos..."
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            placeholder={
+              aiConfig.configured 
+                ? "Pregunta a FleetCopilot (ChatGPT) o usa /comandos..." 
+                : "Pregunta a FleetCopilot o usa /comandos..."
+            }
+            onKeyPress={(e) => e.key === 'Enter' && !isLoading && handleSend()}
             className="flex-1"
+            disabled={isLoading}
           />
           <Button
             variant="outline"
             size="icon"
             onClick={handleVoiceInput}
             className={isListening ? 'bg-red-50 border-red-200' : ''}
+            disabled={isLoading}
           >
             <Mic className={`h-4 w-4 ${isListening ? 'text-red-600' : ''}`} />
           </Button>
-          <Button onClick={handleSend} size="icon">
-            <Send className="h-4 w-4" />
+          <Button 
+            onClick={handleSend} 
+            size="icon"
+            disabled={isLoading || !input.trim()}
+          >
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
