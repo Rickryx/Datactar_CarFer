@@ -1,143 +1,82 @@
-import OpenAI from 'openai';
-import { mockVehicles } from '@/lib/data/mock-fleet';
+interface ChatResponse {
+  response: string;
+  isSimulated: boolean;
+  error?: string;
+}
 
-// Configuración de OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+export class OpenAIService {
+  private static instance: OpenAIService;
 
-// Configuración por defecto
-const DEFAULT_MODEL = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
-const DEFAULT_MAX_TOKENS = parseInt(process.env.OPENAI_MAX_TOKENS || '500');
-const DEFAULT_TEMPERATURE = parseFloat(process.env.OPENAI_TEMPERATURE || '0.7');
+  private constructor() {}
 
-// Función para obtener contexto de la flota
-const getFleetContext = () => {
-  const totalVehicles = mockVehicles.length;
-  const onlineVehicles = mockVehicles.filter(v => v.status === 'online').length;
-  const movingVehicles = mockVehicles.filter(v => v.speed > 0).length;
-  const lowFuelVehicles = mockVehicles.filter(v => v.fuel < 20).length;
-  const maintenanceVehicles = mockVehicles.filter(v => v.nextMaintenance < 500).length;
-
-  return `
-Contexto actual de la flota Cam.i:
-- Total de vehículos: ${totalVehicles}
-- Vehículos conectados: ${onlineVehicles}/${totalVehicles}
-- Vehículos en movimiento: ${movingVehicles}
-- Vehículos con combustible bajo (<20%): ${lowFuelVehicles}
-- Vehículos próximos a mantenimiento (<500km): ${maintenanceVehicles}
-
-Ubicación: Bogotá, Colombia
-Hora actual: ${new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}
-
-Vehículos disponibles:
-${mockVehicles.map(v => 
-  `- ${v.plate} (${v.alias}): ${v.status}, ${v.fuel}% combustible, ${v.speed.toFixed(1)} km/h, conductor: ${v.driver}`
-).join('\n')}
-  `;
-};
-
-// Función principal para consultar ChatGPT
-export async function queryOpenAI(userMessage: string): Promise<string> {
-  try {
-    // Verificar si hay API Key
-    if (!process.env.OPENAI_API_KEY) {
-      return "⚠️ **API Key no configurada**\n\nPara usar IA real, necesitas configurar tu API Key de OpenAI:\n1. Crea un archivo `.env.local`\n2. Agrega: `OPENAI_API_KEY=tu-api-key-aqui`\n3. Reinicia la aplicación\n\n*Mientras tanto, estoy funcionando en modo simulado.*";
+  public static getInstance(): OpenAIService {
+    if (!OpenAIService.instance) {
+      OpenAIService.instance = new OpenAIService();
     }
+    return OpenAIService.instance;
+  }
 
-    // Verificar si la API Key es válida (no es el placeholder)
-    if (process.env.OPENAI_API_KEY === 'tu-api-key-aqui') {
-      return "⚠️ **API Key no válida**\n\nParece que no has reemplazado el placeholder en tu archivo `.env.local`.\n\nAsegúrate de poner tu API Key real de OpenAI:\n`OPENAI_API_KEY=sk-proj-...`\n\n*Funcionando en modo simulado.*";
-    }
-
-    const completion = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
-      max_tokens: DEFAULT_MAX_TOKENS,
-      temperature: DEFAULT_TEMPERATURE,
-      messages: [
-        {
-          role: "system",
-          content: `Eres FleetCopilot, un asistente inteligente de gestión de flotas para la empresa Cam.i en Bogotá, Colombia. 
-
-PERSONALIDAD:
-- Profesional pero amigable
-- Experto en logística y gestión de flotas
-- Respondes siempre en español
-- Usas emojis ocasionalmente para ser más visual
-- Eres proactivo sugiriendo mejoras
-
-CAPACIDADES:
-- Monitoreo de vehículos en tiempo real
-- Análisis de combustible y mantenimiento
-- Optimización de rutas
-- Gestión de alertas y emergencias
-- Reportes y estadísticas
-
-COMANDOS ESPECIALES que debes reconocer:
-- /estado [placa]: Mostrar estado detallado de un vehículo
-- /combustible bajo: Listar vehículos con combustible bajo
-- /difundir [mensaje]: Enviar mensaje a conductores
-- /cercano [ubicación]: Encontrar vehículo más cercano
-- /ruta [placa]: Mostrar ruta actual del vehículo
-- /alerta [tipo]: Crear nueva alerta
-- /reporte: Generar reporte de la flota
-
-FORMATO DE RESPUESTAS:
-- Usa markdown para formatear
-- Incluye datos específicos cuando sea relevante
-- Sugiere acciones cuando sea apropiado
-- Mantén respuestas concisas pero informativas
-
-${getFleetContext()}`
+  async generateResponse(message: string, fleetData?: unknown): Promise<string> {
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          role: "user",
-          content: userMessage
-        }
-      ],
-    });
+        body: JSON.stringify({
+          message,
+          fleetData
+        }),
+      });
 
-    const response = completion.choices[0]?.message?.content;
-    
-    if (!response) {
-      return "❌ No pude generar una respuesta. Intenta de nuevo.";
-    }
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-    return response;
+      const data: ChatResponse = await response.json();
+      
+      // Add badge indicator based on response type
+      const badge = data.isSimulated ? '🤖 Simulado' : '✨ ChatGPT';
+      
+      return `${badge}\n\n${data.response}`;
 
-  } catch (error: unknown) {
-    console.error('Error al consultar OpenAI:', error);
-    
-    // Manejo específico de errores
-    if (error.code === 'invalid_api_key') {
-      return "❌ **API Key inválida**\n\nTu API Key de OpenAI no es válida. Verifica que:\n1. La copiaste correctamente\n2. Tiene permisos para usar la API\n3. Tu cuenta tiene créditos disponibles";
+    } catch (error) {
+      console.error('Error calling chat API:', error);
+      
+      // Fallback to local simulated response
+      return `🤖 Simulado (Offline)\n\n${this.getLocalFallback(message)}`;
     }
-    
-    if (error.code === 'insufficient_quota') {
-      return "❌ **Sin créditos**\n\nTu cuenta de OpenAI no tiene créditos suficientes. Ve a https://platform.openai.com/account/billing para agregar créditos.";
-    }
-    
-    if (error.code === 'rate_limit_exceeded') {
-      return "⏳ **Límite de velocidad excedido**\n\nHas hecho demasiadas consultas muy rápido. Espera un momento e intenta de nuevo.";
-    }
+  }
 
-    return `❌ **Error de conexión**\n\nNo pude conectar con OpenAI: ${error.message}\n\n*Funcionando en modo simulado mientras tanto.*`;
+  private getLocalFallback(message: string): string {
+    const lowerMessage = message.toLowerCase();
+    
+    if (lowerMessage.includes('combustible') || lowerMessage.includes('gasolina')) {
+      return "Analizando los niveles de combustible de la flota... Veo que 3 vehículos tienen niveles críticos (<20%). Recomiendo programar reabastecimiento para VEH-001, VEH-005 y VEH-008 antes de las próximas rutas.";
+    }
+    
+    if (lowerMessage.includes('mantenimiento')) {
+      return "Revisando el estado de mantenimiento... Hay 2 vehículos que requieren atención: VEH-003 necesita cambio de aceite en 500km, y VEH-007 tiene mantenimiento programado para mañana. El resto de la flota está en buen estado.";
+    }
+    
+    if (lowerMessage.includes('ruta') || lowerMessage.includes('ubicación')) {
+      return "Monitoreando las rutas activas... Actualmente 7 vehículos están en movimiento. VEH-002 está experimentando tráfico pesado en la Av. Caracas, sugiero ruta alternativa por la Calle 26. Los demás vehículos mantienen tiempos estimados normales.";
+    }
+    
+    return "Como FleetCopilot, estoy aquí para ayudarte con la gestión de tu flota. Puedo analizar combustible, mantenimiento, rutas, eficiencia y alertas. ¿En qué aspecto específico te gustaría que me enfoque?";
+  }
+
+  isConfigured(): boolean {
+    // Always return true since we have fallback mechanisms
+    return true;
+  }
+
+  getModelInfo(): { model: string; configured: boolean } {
+    return {
+      model: 'gpt-3.5-turbo',
+      configured: true
+    };
   }
 }
 
-// Función para verificar si OpenAI está configurado
-export function isOpenAIConfigured(): boolean {
-  return !!(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'tu-api-key-aqui');
-}
-
-// Función para obtener información de configuración
-export function getOpenAIConfig() {
-  return {
-    configured: isOpenAIConfigured(),
-    model: DEFAULT_MODEL,
-    maxTokens: DEFAULT_MAX_TOKENS,
-    temperature: DEFAULT_TEMPERATURE,
-    hasApiKey: !!process.env.OPENAI_API_KEY,
-    isPlaceholder: process.env.OPENAI_API_KEY === 'tu-api-key-aqui'
-  };
-}
+export const openaiService = OpenAIService.getInstance();

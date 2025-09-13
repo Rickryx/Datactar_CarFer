@@ -96,3 +96,12 @@ Read more: https://nextjs.org/docs/app/api-reference/config/next-config-js/allow
 }
  GET / 500 in 779ms
  GET /favicon.ico?favicon.bf3c9292.ico 200 in 303ms
+ ⚠ Found a change in next.config.js. Restarting the server to apply the changes...
+   ▲ Next.js 15.5.2 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://169.254.0.21:3000
+
+ ✓ Starting...
+ ⚠ Found lockfile missing swc dependencies, patching...
+ ✓ Ready in 2.6s
+ ⚠ Lockfile was successfully patched, please run "npm install" to ensure @next/swc dependencies are downloaded
